@@ -1,0 +1,62 @@
+- name: Download Prometheus
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+    dest: /tmp/prometheus.tar.gz
+
+- name: Extract Prometheus
+  ansible.builtin.unarchive:
+    src: /tmp/prometheus.tar.gz
+    dest: /opt/
+    remote_src: yes
+
+- name: Move Prometheus binaries
+  ansible.builtin.command:
+    cmd: mv /opt/prometheus-{{ prometheus_version }}.linux-amd64/prometheus /usr/local/bin/
+  args:
+    creates: /usr/local/bin/prometheus
+
+- name: Ensure Prometheus config directory exists
+  ansible.builtin.file:
+    path: /etc/prometheus
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Create Prometheus config
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Create Prometheus systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/prometheus.service
+    content: |
+      [Unit]
+      Description=Prometheus
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      User=root
+      ExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus/ --web.listen-address="0.0.0.0:9091"
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Start and enable Prometheus
+  ansible.builtin.systemd:
+    name: prometheus
+    state: started
+    enabled: true

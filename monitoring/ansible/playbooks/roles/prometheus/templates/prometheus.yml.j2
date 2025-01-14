@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'node'
+    static_configs:
+      - targets:
+          - "176.109.82.213:9100"  # Node Exporter на balancer
+          - "176.109.82.213:9100"  # Node Exporter на bd1
+
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    static_configs:
+      - targets:
+          - "176.109.82.213:8080"

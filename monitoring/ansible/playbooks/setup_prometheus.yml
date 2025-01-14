@@ -1,0 +1,5 @@
+- name: Install Prometheus
+  hosts: balancer
+  become: true
+  roles:
+    - prometheus

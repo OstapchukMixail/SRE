@@ -1,0 +1,45 @@
+- name: Download Blackbox Exporter
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/blackbox_exporter/releases/download/v{{ blackbox_exporter_version }}/blackbox_exporter-{{ blackbox_exporter_version }}.linux-amd64.tar.gz"
+    dest: /tmp/blackbox_exporter.tar.gz
+
+- name: Extract Blackbox Exporter
+  ansible.builtin.unarchive:
+    src: /tmp/blackbox_exporter.tar.gz
+    dest: /opt/
+    remote_src: yes
+
+- name: Move Blackbox Exporter binary
+  ansible.builtin.command:
+    cmd: mv /opt/blackbox_exporter-{{ blackbox_exporter_version }}.linux-amd64/blackbox_exporter /usr/local/bin/
+    creates: /usr/local/bin/blackbox_exporter
+
+- name: Create Blackbox Exporter config
+  ansible.builtin.template:
+    src: blackbox.yml.j2
+    dest: /etc/blackbox_exporter.yml
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Create Blackbox Exporter service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/blackbox_exporter.service
+    content: |
+      [Unit]
+      Description=Blackbox Exporter
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      User=root
+      ExecStart=/usr/local/bin/blackbox_exporter --config.file=/etc/blackbox_exporter.yml
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Start and enable Blackbox Exporter
+  ansible.builtin.systemd:
+    name: blackbox_exporter
+    state: started
+    enabled: true

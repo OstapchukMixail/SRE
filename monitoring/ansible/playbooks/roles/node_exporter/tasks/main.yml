@@ -1,0 +1,37 @@
+- name: Download Node Exporter
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    dest: /tmp/node_exporter.tar.gz
+
+- name: Extract Node Exporter
+  ansible.builtin.unarchive:
+    src: /tmp/node_exporter.tar.gz
+    dest: /opt/
+    remote_src: yes
+
+- name: Move Node Exporter binary
+  ansible.builtin.command:
+    cmd: mv /opt/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter /usr/local/bin/
+    creates: /usr/local/bin/node_exporter
+
+- name: Create Node Exporter service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/node_exporter.service
+    content: |
+      [Unit]
+      Description=Node Exporter
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      User=root
+      ExecStart=/usr/local/bin/node_exporter
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Start and enable Node Exporter
+  ansible.builtin.systemd:
+    name: node_exporter
+    state: started
+    enabled: true
