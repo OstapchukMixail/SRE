@@ -1,53 +1,62 @@
+---
+# Создаем директорию для PostgreSQL Exporter
+- name: Create Postgres Exporter directory
+  file:
+    path: /opt/postgres_exporter
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
 - name: Download PostgreSQL Exporter
-  ansible.builtin.get_url:
-    url: "https://github.com/prometheus-community/postgres_exporter/releases/download/v{{ postgres_exporter_version }}/postgres_exporter-{{ postgres_exporter_version }}.linux-amd64.tar.gz"
+  get_url:
+    url: https://github.com/prometheus-community/postgres_exporter/releases/download/v0.10.1/postgres_exporter-0.10.1.linux-amd64.tar.gz
     dest: /tmp/postgres_exporter.tar.gz
 
 - name: Extract PostgreSQL Exporter
-  ansible.builtin.unarchive:
+  unarchive:
     src: /tmp/postgres_exporter.tar.gz
-    dest: /opt/
+    dest: /opt/postgres_exporter
     remote_src: yes
 
-- name: Move PostgreSQL Exporter binary
+- name: Move PostgreSQL Exporter binary to /usr/local/bin
   ansible.builtin.command:
-    cmd: mv /opt/postgres_exporter-{{ postgres_exporter_version }}.linux-amd64/postgres_exporter /usr/local/bin/
+    cmd: mv /opt/postgres_exporter/postgres_exporter-0.10.1.linux-amd64/postgres_exporter /usr/local/bin/
+  args:
     creates: /usr/local/bin/postgres_exporter
 
-- name: Create PostgreSQL Exporter systemd service
-  ansible.builtin.copy:
+- name: Set permissions for PostgreSQL Exporter binary
+  file:
+    path: /usr/local/bin/postgres_exporter
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create PostgreSQL Exporter service configuration
+  copy:
     dest: /etc/systemd/system/postgres_exporter.service
     content: |
       [Unit]
       Description=PostgreSQL Exporter
-      Wants=postgresql.service
-      After=postgresql.service
+      After=network.target
 
       [Service]
-      User=postgres
-      Group=postgres
+      Environment=DATA_SOURCE_NAME="postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable" 
       ExecStart=/usr/local/bin/postgres_exporter \
-        --extend.query-path=/etc/postgres/queries.yaml \
-        --web.listen-address=0.0.0.0:9187 \
-        --web.telemetry-path=/metrics
-      Environment=DATA_SOURCE_NAME=postgresql://postgres:password@localhost:5432/?sslmode=disable
+        --web.listen-address=:{{ postgres_exporter_port }}
+      Restart=always
 
       [Install]
       WantedBy=multi-user.target
+    owner: root
+    group: root
+    mode: '0644'
 
-  register: postgres_service_status
+- name: Reload systemd daemon
+  command: systemctl daemon-reload
 
-- name: Restart PostgreSQL Exporter service if changed
-  ansible.builtin.systemd:
+- name: Start and enable PostgreSQL Exporter
+  systemd:
     name: postgres_exporter
-    state: restarted
     enabled: true
-    when: postgres_service_status is changed
-
-- name: Install custom queries for PostgreSQL Exporter
-  ansible.builtin.template:
-    src: queries.yaml
-    dest: /etc/postgres/queries.yaml
-    owner: postgres
-    group: postgres
-    mode: 0644
+    state: started

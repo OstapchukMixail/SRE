@@ -1,0 +1,4 @@
+postgres_exporter_port: 9187
+postgres_instances:
+  - bd1
+  - bd2

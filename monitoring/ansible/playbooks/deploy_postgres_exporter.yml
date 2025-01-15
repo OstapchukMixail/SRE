@@ -1,0 +1,6 @@
+---
+- name: Deploy PostgreSQL Exporter
+  hosts: postgres
+  become: yes
+  roles:
+    - postgres_exporter

@@ -1,0 +1,3 @@
+node_exporter_port: 9100
+os_metrics_hosts:
+  - monitoring_server

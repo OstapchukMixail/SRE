@@ -1,37 +1,64 @@
+- name: Create Node Exporter directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  loop:
+    - /opt/node_exporter
+    - /var/lib/node_exporter
+
 - name: Download Node Exporter
-  ansible.builtin.get_url:
-    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+  get_url:
+    url: https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz
     dest: /tmp/node_exporter.tar.gz
 
 - name: Extract Node Exporter
-  ansible.builtin.unarchive:
+  unarchive:
     src: /tmp/node_exporter.tar.gz
-    dest: /opt/
+    dest: /opt/node_exporter
     remote_src: yes
 
-- name: Move Node Exporter binary
+- name: Move Node Exporter binary to /usr/local/bin
   ansible.builtin.command:
-    cmd: mv /opt/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter /usr/local/bin/
+    cmd: mv /opt/node_exporter/node_exporter-1.5.0.linux-amd64/node_exporter /usr/local/bin/
+  args:
     creates: /usr/local/bin/node_exporter
 
-- name: Create Node Exporter service
-  ansible.builtin.copy:
+- name: Set permissions for Node Exporter binary
+  file:
+    path: /usr/local/bin/node_exporter
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+
+- name: Create Node Exporter systemd service
+  copy:
     dest: /etc/systemd/system/node_exporter.service
     content: |
       [Unit]
       Description=Node Exporter
-      Wants=network-online.target
-      After=network-online.target
+      After=network.target
 
       [Service]
-      User=root
-      ExecStart=/usr/local/bin/node_exporter
+      User=prometheus
+      ExecStart=/usr/local/bin/node_exporter \
+        --log.level=info \
+        --web.listen-address="0.0.0.0:9100"
+      Restart=always
 
       [Install]
       WantedBy=multi-user.target
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Reload systemd daemon for Node Exporter
+  command: systemctl daemon-reload
 
 - name: Start and enable Node Exporter
-  ansible.builtin.systemd:
+  systemd:
     name: node_exporter
+    enabled: yes
     state: started
-    enabled: true

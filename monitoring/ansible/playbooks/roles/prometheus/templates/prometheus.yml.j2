@@ -1,15 +1,60 @@
 global:
-  scrape_interval: 15s
+  scrape_interval: 15s  # Задаем частоту сбора метрик по умолчанию
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - "localhost:9093"  # Указываем Alertmanager на том же хосте, что и Prometheus
+
+rule_files:
+  - "/etc/prometheus/alert_rules.yml"  # Подключаем файл с правилами для алертов
 
 scrape_configs:
-  - job_name: 'node'
+  # Node Exporter (мониторинг ОС)
+  - job_name: 'node_exporter'
     static_configs:
       - targets:
-          - "176.109.82.213:9100"  # Node Exporter на balancer
-          - "176.109.82.213:9100"  # Node Exporter на bd1
+          - "192.168.1.53:9100"
+          - "192.168.1.54:9100"
+          - "192.168.1.55:9100"
+          - "192.168.1.56:9100"
+          - "192.168.1.57:9100"
+          - "192.168.1.58:9100"
 
-  - job_name: 'blackbox'
-    metrics_path: /probe
+  # PostgreSQL Exporter (метрики PostgreSQL)
+  - job_name: 'postgres_exporter'
     static_configs:
       - targets:
-          - "176.109.82.213:8080"
+          - "192.168.1.54:9187"
+          - "192.168.1.55:9187"
+
+  # Patroni Exporter (метрики Patroni)
+  - job_name: 'patroni_exporter'
+    static_configs:
+      - targets:
+          - "176.109.82.213:8011"
+
+  # etcd Exporter (метрики etcd)
+  - job_name: 'etcd_exporter'
+    static_configs:
+      - targets:
+          - "192.168.1.56:2379"
+          - "192.168.1.57:2379"
+          - "192.168.1.58:2379"
+
+  # Blackbox Exporter (мониторинг доступности API)
+  - job_name: 'blackbox_exporter'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]  # Используем HTTP probe
+    static_configs:
+      - targets:
+          - http://localhost:8080
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: "192.168.1.53:9115"

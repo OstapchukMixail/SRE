@@ -1,0 +1,11 @@
+---
+- name: Debug group_vars and host_vars
+  hosts: os_metrics
+  gather_facts: false
+  tasks:
+    - name: Show all variables for current host
+      debug:
+        var: hostvars[inventory_hostname]
+    - name: Show node_exporter_port variable
+      debug:
+        var: node_exporter_port

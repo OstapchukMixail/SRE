@@ -1,0 +1,6 @@
+---
+- name: Deploy Prometheus Server
+  hosts: prometheus
+  become: yes
+  roles:
+    - prometheus

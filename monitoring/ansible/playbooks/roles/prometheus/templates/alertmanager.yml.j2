@@ -1,0 +1,11 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname']
+  receiver: 'null_receiver'
+
+receivers:
+  - name: 'null_receiver'
+    webhook_configs:
+      - url: http://localhost/nothing 

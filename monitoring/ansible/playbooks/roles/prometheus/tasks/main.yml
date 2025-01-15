@@ -1,17 +1,45 @@
+---
+- name: Debug node_exporter_port variable
+  debug:
+    msg: "Node Exporter Port is {{ node_exporter_port }}"
+
+- name: Install dependencies
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - wget
+    - tar
+
+- name: Create Prometheus user
+  user:
+    name: prometheus
+    shell: /usr/sbin/nologin
+    system: yes
+    create_home: no
+
+- name: Create Prometheus directory
+  file:
+    path: /opt/prometheus
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+
 - name: Download Prometheus
-  ansible.builtin.get_url:
-    url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+  get_url:
+    url: https://github.com/prometheus/prometheus/releases/download/v2.46.0/prometheus-2.46.0.linux-amd64.tar.gz
     dest: /tmp/prometheus.tar.gz
 
 - name: Extract Prometheus
-  ansible.builtin.unarchive:
+  unarchive:
     src: /tmp/prometheus.tar.gz
     dest: /opt/
     remote_src: yes
 
 - name: Move Prometheus binaries
   ansible.builtin.command:
-    cmd: mv /opt/prometheus-{{ prometheus_version }}.linux-amd64/prometheus /usr/local/bin/
+    cmd: mv /opt/prometheus-2.46.0.linux-amd64/prometheus /usr/local/bin/
   args:
     creates: /usr/local/bin/prometheus
 
@@ -19,17 +47,19 @@
   ansible.builtin.file:
     path: /etc/prometheus
     state: directory
-    owner: root
-    group: root
+    owner: prometheus
+    group: prometheus
     mode: 0755
 
 - name: Create Prometheus config
   ansible.builtin.template:
     src: prometheus.yml.j2
     dest: /etc/prometheus/prometheus.yml
-    owner: root
-    group: root
+    owner: prometheus
+    group: prometheus
     mode: 0644
+  notify:
+    - Restart Prometheus
 
 - name: Create Prometheus systemd service
   ansible.builtin.copy:
@@ -39,17 +69,17 @@
       Description=Prometheus
       Wants=network-online.target
       After=network-online.target
-
       [Service]
-      User=root
-      ExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus/ --web.listen-address="0.0.0.0:9091"
+      User=prometheus
+      ExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus/ --web.listen-address="0.0.0.0:9090"
       Restart=always
-
       [Install]
       WantedBy=multi-user.target
-    owner: root
-    group: root
+    owner: prometheus
+    group: prometheus
     mode: 0644
+  notify:
+    - Restart Prometheus
 
 - name: Reload systemd daemon
   ansible.builtin.systemd:
@@ -60,3 +90,71 @@
     name: prometheus
     state: started
     enabled: true
+
+- name: Create Alertmanager directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  loop:
+    - /opt/alertmanager
+    - /etc/alertmanager
+    - /var/lib/alertmanager
+
+- name: Download Alertmanager
+  get_url:
+    url: "https://github.com/prometheus/alertmanager/releases/download/v0.25.0/alertmanager-0.25.0.linux-amd64.tar.gz"
+    dest: /tmp/alertmanager.tar.gz
+
+- name: Extract Alertmanager
+  unarchive:
+    src: /tmp/alertmanager.tar.gz
+    dest: /opt/alertmanager
+    remote_src: yes
+
+- name: Move Alertmanager binaries
+  ansible.builtin.command:
+    cmd: mv /opt/alertmanager/alertmanager-0.25.0.linux-amd64/alertmanager /usr/local/bin/
+  args:
+    creates: /usr/local/bin/alertmanager
+
+- name: Configure Alertmanager
+  template:
+    src: alertmanager.yml.j2
+    dest: /etc/alertmanager/config.yml
+    owner: prometheus
+    group: prometheus
+    mode: 0644
+
+- name: Install Alertmanager systemd service
+  copy:
+    dest: /etc/systemd/system/alertmanager.service
+    content: |
+      [Unit]
+      Description=Alertmanager for Prometheus
+      After=network.target
+
+      [Service]
+      User=prometheus
+      ExecStart=/usr/local/bin/alertmanager \
+        --config.file=/etc/alertmanager/config.yml \
+        --storage.path=/var/lib/alertmanager/
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Reload systemd daemon for Alertmanager
+  command: systemctl daemon-reload
+
+- name: Start and enable Alertmanager
+  systemd:
+    name: alertmanager
+    enabled: yes
+    state: started
+ 

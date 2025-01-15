@@ -1,0 +1,6 @@
+---
+- name: Deploy Node Exporter
+  hosts: os_metrics
+  become: yes
+  roles:
+    - node_exporter

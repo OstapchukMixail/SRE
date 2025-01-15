@@ -1,0 +1,6 @@
+---
+- name: Deploy etcd Exporter
+  hosts: etcd
+  become: yes
+  roles:
+    - etcd_exporter
