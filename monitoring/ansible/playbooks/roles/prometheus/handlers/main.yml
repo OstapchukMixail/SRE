@@ -3,3 +3,8 @@
   ansible.builtin.systemd:
     name: prometheus
     state: restarted
+
+- name: Restart Alert Manager
+  ansible.builtin.systemd:
+    name: alertmanager
+    state: restarted

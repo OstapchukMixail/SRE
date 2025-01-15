@@ -1,42 +1,39 @@
 groups:
-  - name: golden_signals_alerts
+  - name: alertmanager_requests
     rules:
-      # 1. Alert: Высокая задержка (Latency)
-      - alert: HighLatency
-        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
-        for: 1m
-        labels:
-          severity: warning
-        annotations:
-          summary: High latency detected
-          description: The 95th percentile latency is {{ $value }}s, which exceeds 1s.
-
-      # 2. Alert: Высокий процент ошибок (Error rate)
-      - alert: HighErrorRate
-        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: High error rate detected
-          description: Error rate of 5xx responses is {{ $value }} requests/sec, which exceeds 0.1.
-
-      # 3. Alert: Высокая скорость запросов (Traffic)
-      - alert: HighRequestRate
-        expr: sum(rate(http_requests_total[5m])) > 1000
-        for: 2m
-        labels:
-          severity: warning
-        annotations:
-          summary: High request rate detected
-          description: Request rate is {{ $value }} requests/sec, which exceeds 1000.
-
-      # 4. Alert: Высокая загрузка CPU (Saturation)
-      - alert: HighCpuUsage
-        expr: node_load1 > 0.85 * on(instance) (node_cpu_seconds_total{mode="idle"}[5m])
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: High CPU usage detected
-          description: The 1-minute load average exceeds 85% of available CPU capacity.
+    - alert: HighHTTPRequestRate
+      expr: rate(alertmanager_http_request_duration_seconds_count[5m]) > 10
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: High HTTP request rate to Alertmanager
+        description: The rate of HTTP requests to Alertmanager is higher than 10 per second.
+  - name: latency-alert
+    rules:
+    - alert: HighRequestLatency
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "95th percentile latency is high"
+        description: "The 95th percentile latency is > 0.5s for the last 5 minutes."
+  - name: saturation-alerts
+    rules:
+    - alert: HighCPUUsage
+      expr: avg(rate(node_cpu_seconds_total{mode="user"}[5m])) by (instance) > 0.85
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High CPU usage"
+        description: "The average CPU usage is above 85% for 5 minutes"
+    - alert: DiskAlmostFull
+      expr: node_filesystem_free_bytes / node_filesystem_size_bytes < 0.1
+      for: 10m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Disk space is almost full"
+        description: "The disk space is below 10%"

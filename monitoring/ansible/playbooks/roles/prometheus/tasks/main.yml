@@ -149,6 +149,17 @@
     group: root
     mode: 0644
 
+- name: Move alert_rules
+  template:
+    src: alert_rules.yml.j2
+    dest: "/etc/prometheus/alert_rules.yml"
+    owner: prometheus
+    group: prometheus
+    mode: '0644'
+  notify:
+    - Restart Alert Manager
+    - Restart Prometheus
+
 - name: Reload systemd daemon for Alertmanager
   command: systemctl daemon-reload
 

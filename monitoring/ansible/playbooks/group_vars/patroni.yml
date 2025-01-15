@@ -1,4 +1,0 @@
-patroni_exporter_port: 8011
-patroni_instances:
-  - bd1
-  - bd2
